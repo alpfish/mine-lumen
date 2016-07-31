@@ -18,10 +18,11 @@ use Symfony\Bridge\PsrHttpMessage\Factory\DiactorosFactory;
 
 class Application extends Container
 {
-    use Concerns\RoutesRequests,
-        Concerns\RegistersExceptionHandlers;
+    //use Concerns\RoutesRequests,  //用简易路由器代替原有的
+    //use Concerns\RegistersExceptionHandlers; //注册错误处理
 
     /**
+     * 已注册的类别名
      * Indicates if the class aliases have been registered.
      *
      * @var bool
@@ -29,6 +30,7 @@ class Application extends Container
     protected static $aliasesRegistered = false;
 
     /**
+     * 网站项目基本路径
      * The base path of the application installation.
      *
      * @var string
@@ -36,6 +38,7 @@ class Application extends Container
     protected $basePath;
 
     /**
+     * 已加载的配置文件
      * All of the loaded configuration files.
      *
      * @var array
@@ -43,6 +46,7 @@ class Application extends Container
     protected $loadedConfigurations = [];
 
     /**
+     * 已加载的服务提供者
      * The loaded service providers.
      *
      * @var array
@@ -50,6 +54,7 @@ class Application extends Container
     protected $loadedProviders = [];
 
     /**
+     * 已运行的服务绑定方法
      * The service binding methods that have been executed.
      *
      * @var array
@@ -57,6 +62,7 @@ class Application extends Container
     protected $ranServiceBinders = [];
 
     /**
+     * 自定义日志回调
      * A custom callback used to configure Monolog.
      *
      * @var callable|null
@@ -64,6 +70,7 @@ class Application extends Container
     protected $monologConfigurator;
 
     /**
+     * 应用命名空间
      * The application namespace.
      *
      * @var string
@@ -71,6 +78,7 @@ class Application extends Container
     protected $namespace;
 
     /**
+     * 创建应用容器实例
      * Create a new Lumen application instance.
      *
      * @param  string|null  $basePath
@@ -78,15 +86,17 @@ class Application extends Container
      */
     public function __construct($basePath = null)
     {
-        date_default_timezone_set(env('APP_TIMEZONE', 'UTC'));
+        //date_default_timezone_set(env('APP_TIMEZONE', 'UTC'));        //时区设置
 
         $this->basePath = $basePath;
 
         $this->bootstrapContainer();
-        $this->registerErrorHandling();
+
+        //$this->registerErrorHandling();   //错误处理
     }
 
     /**
+     * 引导应用容器
      * Bootstrap the application container.
      *
      * @return void
@@ -100,30 +110,12 @@ class Application extends Container
 
         $this->instance('path', $this->path());
 
+        //注册容器中的别名
         $this->registerContainerAliases();
     }
 
     /**
-     * Get the version number of the application.
-     *
-     * @return string
-     */
-    public function version()
-    {
-        return 'Lumen (5.2.7) (Laravel Components 5.2.*)';
-    }
-
-    /**
-     * Determine if the application is currently down for maintenance.
-     *
-     * @return bool
-     */
-    public function isDownForMaintenance()
-    {
-        return false;
-    }
-
-    /**
+     * 应用环境
      * Get or check the current application environment.
      *
      * @param  mixed
@@ -149,6 +141,7 @@ class Application extends Container
     }
 
     /**
+     * 服务注册器
      * Register a service provider with the application.
      *
      * @param  \Illuminate\Support\ServiceProvider|string  $provider
@@ -162,17 +155,24 @@ class Application extends Container
             $provider = new $provider($this);
         }
 
+        //已注册则返回
         if (array_key_exists($providerName = get_class($provider), $this->loadedProviders)) {
             return;
         }
+//echo '[ServiceProviderName] ------ ' . $providerName . '<br>';
 
+        //标记已注册
         $this->loadedProviders[$providerName] = true;
 
+        //注册
         $provider->register();
+
+        //注册后
         $provider->boot();
     }
 
     /**
+     * 延迟加载服务注册器
      * Register a deferred provider and service.
      *
      * @param  string  $provider
@@ -185,6 +185,7 @@ class Application extends Container
     }
 
     /**
+     * 服务容器解析 或 启动
      * Resolve the given type from the container.
      *
      * @param  string  $abstract
@@ -193,19 +194,28 @@ class Application extends Container
      */
     public function make($abstract, array $parameters = [])
     {
+        //获取服务别名
         $abstract = $this->getAlias($this->normalize($abstract));
 
+//echo '[ make ] ------ '. $abstract .'<br>';
+
+        // <要解析的服务> 在 <可绑定的服务数组中>  &&  <还没有执行该绑定>
         if (array_key_exists($abstract, $this->availableBindings) &&
             ! array_key_exists($this->availableBindings[$abstract], $this->ranServiceBinders)) {
+
+            // 执行绑定服务
             $this->{$method = $this->availableBindings[$abstract]}();
 
+            // 登记已经绑定
             $this->ranServiceBinders[$method] = true;
         }
 
+        // 返回解析到的已注册服务
         return parent::make($abstract, $parameters);
     }
 
     /**
+     * 绑定认证
      * Register container bindings for the application.
      *
      * @return void
@@ -226,6 +236,7 @@ class Application extends Container
     }
 
     /**
+     * 绑定广播
      * Register container bindings for the application.
      *
      * @return void
@@ -242,6 +253,7 @@ class Application extends Container
     }
 
     /**
+     * 绑定BUS
      * Register container bindings for the application.
      *
      * @return void
@@ -256,6 +268,7 @@ class Application extends Container
     }
 
     /**
+     * 绑定缓存
      * Register container bindings for the application.
      *
      * @return void
@@ -271,6 +284,7 @@ class Application extends Container
     }
 
     /**
+     * 绑定依赖
      * Register container bindings for the application.
      *
      * @return void
@@ -283,6 +297,7 @@ class Application extends Container
     }
 
     /**
+     * 绑定配置
      * Register container bindings for the application.
      *
      * @return void
@@ -295,6 +310,7 @@ class Application extends Container
     }
 
     /**
+     * 绑定数据库
      * Register container bindings for the application.
      *
      * @return void
@@ -312,6 +328,7 @@ class Application extends Container
     }
 
     /**
+     * 绑定加密
      * Register container bindings for the application.
      *
      * @return void
@@ -324,6 +341,7 @@ class Application extends Container
     }
 
     /**
+     * 绑定事件
      * Register container bindings for the application.
      *
      * @return void
@@ -338,6 +356,7 @@ class Application extends Container
     }
 
     /**
+     * 绑定文件系统
      * Register container bindings for the application.
      *
      * @return void
@@ -350,6 +369,7 @@ class Application extends Container
     }
 
     /**
+     * 绑定哈希
      * Register container bindings for the application.
      *
      * @return void
@@ -364,6 +384,7 @@ class Application extends Container
     }
 
     /**
+     * 绑定日志
      * Register container bindings for the application.
      *
      * @return void
@@ -380,6 +401,7 @@ class Application extends Container
     }
 
     /**
+     * 绑定Monolog
      * Define a callback to be used to configure Monolog.
      *
      * @param  callable  $callback
@@ -393,6 +415,7 @@ class Application extends Container
     }
 
     /**
+     * 绑定队列
      * Register container bindings for the application.
      *
      * @return void
@@ -419,6 +442,7 @@ class Application extends Container
     }
 
     /**
+     * 绑定请求
      * Register container bindings for the application.
      *
      * @return void
@@ -431,6 +455,7 @@ class Application extends Container
     }
 
     /**
+     * 解析请求
      * Prepare the given request instance for use with the application.
      *
      * @param   \Illuminate\Http\Request  $request
@@ -472,6 +497,7 @@ class Application extends Container
     }
 
     /**
+     * 绑定本地化
      * Register container bindings for the application.
      *
      * @return void
@@ -490,6 +516,7 @@ class Application extends Container
     }
 
     /**
+     * 获取语言路径
      * Get the path to the application's language files.
      *
      * @return string
@@ -504,6 +531,7 @@ class Application extends Container
     }
 
     /**
+     * 绑定路由 url
      * Register container bindings for the application.
      *
      * @return void
@@ -516,6 +544,7 @@ class Application extends Container
     }
 
     /**
+     * 绑定验证
      * Register container bindings for the application.
      *
      * @return void
@@ -530,6 +559,7 @@ class Application extends Container
     }
 
     /**
+     * 绑定视图
      * Register container bindings for the application.
      *
      * @return void
@@ -542,6 +572,7 @@ class Application extends Container
     }
 
     /**
+     * 配置&&加载 服务
      * Configure and load the given component and provider.
      *
      * @param  string  $config
@@ -554,6 +585,7 @@ class Application extends Container
         $this->configure($config);
 
         foreach ((array) $providers as $provider) {
+            //注册服务
             $this->register($provider);
         }
 
@@ -561,6 +593,7 @@ class Application extends Container
     }
 
     /**
+     * 加载配置（从项目/包）
      * Load a configuration file into the application.
      *
      * @param  string  $name
@@ -572,16 +605,21 @@ class Application extends Container
             return;
         }
 
+        //标记已加载
         $this->loadedConfigurations[$name] = true;
 
+        //获取配置文件
         $path = $this->getConfigurationPath($name);
 
+        //解析 config 服务 并设置配置文件
         if ($path) {
-            $this->make('config')->set($name, require $path);
+//echo '[ config ] ------ ' . $path . '<br>';
+            $this->make('config')->set($name, require $path); // ---> Illuminate\Config\Repository
         }
     }
 
     /**
+     * 获取配置目录或文件（从项目/包）
      * Get the path to the given configuration file.
      *
      * If no name is provided, then we'll return the path to the config folder.
@@ -591,26 +629,28 @@ class Application extends Container
      */
     public function getConfigurationPath($name = null)
     {
+        //无文件名
         if (! $name) {
             $appConfigDir = $this->basePath('config').'/';
-
             if (file_exists($appConfigDir)) {
-                return $appConfigDir;
+                return $appConfigDir;   //项目配置目录
             } elseif (file_exists($path = __DIR__.'/../config/')) {
-                return $path;
+                return $path;   //包配置目录
             }
         } else {
+
             $appConfigPath = $this->basePath('config').'/'.$name.'.php';
 
             if (file_exists($appConfigPath)) {
-                return $appConfigPath;
+                return $appConfigPath; //项目配置文件
             } elseif (file_exists($path = __DIR__.'/../config/'.$name.'.php')) {
-                return $path;
+                return $path;   //包配置文件
             }
         }
     }
 
     /**
+     * 注册门面(别名)
      * Register the facades for the application.
      *
      * @return void
@@ -622,20 +662,22 @@ class Application extends Container
         if (! static::$aliasesRegistered) {
             static::$aliasesRegistered = true;
 
-            class_alias('Illuminate\Support\Facades\Auth', 'Auth');
+            class_alias('Illuminate\Support\Facades\DB', 'MineDB');
             class_alias('Illuminate\Support\Facades\Cache', 'Cache');
-            class_alias('Illuminate\Support\Facades\DB', 'DB');
+            class_alias('Illuminate\Support\Facades\Validator', 'Validator');
+            class_alias('Illuminate\Support\Facades\Auth', 'Auth');
             class_alias('Illuminate\Support\Facades\Event', 'Event');
             class_alias('Illuminate\Support\Facades\Gate', 'Gate');
             class_alias('Illuminate\Support\Facades\Log', 'Log');
             class_alias('Illuminate\Support\Facades\Queue', 'Queue');
             class_alias('Illuminate\Support\Facades\Schema', 'Schema');
             class_alias('Illuminate\Support\Facades\URL', 'URL');
-            class_alias('Illuminate\Support\Facades\Validator', 'Validator');
+
         }
     }
 
     /**
+     * 使用 ORM
      * Load the Eloquent library for the application.
      *
      * @return void
@@ -646,6 +688,7 @@ class Application extends Container
     }
 
     /**
+     * App 目录
      * Get the path to the application "app" directory.
      *
      * @return string
@@ -656,6 +699,7 @@ class Application extends Container
     }
 
     /**
+     * 基本目录 （项目根目录）
      * Get the base path for the application.
      *
      * @param  string|null  $path
@@ -677,6 +721,7 @@ class Application extends Container
     }
 
     /**
+     * 数据库目录
      * Get the database path for the application.
      *
      * @return string
@@ -687,6 +732,7 @@ class Application extends Container
     }
 
     /**
+     * 缓存目录
      * Get the storage path for the application.
      *
      * @param  string|null  $path
@@ -698,6 +744,7 @@ class Application extends Container
     }
 
     /**
+     * 命令行模式
      * Determine if the application is running in the console.
      *
      * @return bool
@@ -708,6 +755,7 @@ class Application extends Container
     }
 
     /**
+     * 测试
      * Determine if we are running unit tests.
      *
      * @return bool
@@ -718,6 +766,7 @@ class Application extends Container
     }
 
     /**
+     * 初始化命令行模式
      * Prepare the application to execute a console command.
      *
      * @return void
@@ -737,6 +786,7 @@ class Application extends Container
     }
 
     /**
+     * 绑定别名
      * Register the core container aliases.
      *
      * @return void
@@ -768,6 +818,7 @@ class Application extends Container
     }
 
     /**
+     * 可绑定服务
      * The available container bindings and their respective load methods.
      *
      * @var array

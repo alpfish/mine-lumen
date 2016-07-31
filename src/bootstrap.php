@@ -1,13 +1,17 @@
 <?php
 
-$api = new Mine\Application;
+// 创建容器, 并设置 basePath
+$api = new Mine\Application(realpath(__DIR__.'/../../../../'));
 
-ddd('Say Hello');
+// 注册门面（ 使用 MineDB 代替 DB ）
+$api->withFacades();
+// 使用ORM
+$api->withEloquent();
 
-/*use Illuminate\Database\Capsule\Manager as DB;
-$data = DB::table('goods_sku')->get();
 
-ddd($data);*/
+echo $api->basePath();
+
+
 
 
 // 启动路由
