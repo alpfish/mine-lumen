@@ -8,10 +8,9 @@ $api->withFacades();
 // 使用ORM
 $api->withEloquent();
 
-
 echo $api->basePath();
 
-
+echo $api->apiPath();
 
 
 // 启动路由

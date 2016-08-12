@@ -2,13 +2,10 @@
 
 namespace Mine;
 
-use Monolog\Logger;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Support\Composer;
-use Monolog\Handler\StreamHandler;
 use Illuminate\Container\Container;
-use Monolog\Formatter\LineFormatter;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\ServiceProvider;
@@ -18,20 +15,15 @@ use Symfony\Bridge\PsrHttpMessage\Factory\DiactorosFactory;
 
 class Application extends Container
 {
-    //use Concerns\RoutesRequests,  //用简易路由器代替原有的
-    //use Concerns\RegistersExceptionHandlers; //注册错误处理
-
     /**
      * 已注册的类别名
-     * Indicates if the class aliases have been registered.
      *
      * @var bool
      */
     protected static $aliasesRegistered = false;
 
     /**
-     * 网站项目基本路径
-     * The base path of the application installation.
+     * 网站项目根目录
      *
      * @var string
      */
@@ -39,7 +31,6 @@ class Application extends Container
 
     /**
      * 已加载的配置文件
-     * All of the loaded configuration files.
      *
      * @var array
      */
@@ -47,31 +38,20 @@ class Application extends Container
 
     /**
      * 已加载的服务提供者
-     * The loaded service providers.
      *
      * @var array
      */
     protected $loadedProviders = [];
 
     /**
-     * 已运行的服务绑定方法
-     * The service binding methods that have been executed.
+     * 已运行的绑定
      *
      * @var array
      */
     protected $ranServiceBinders = [];
 
     /**
-     * 自定义日志回调
-     * A custom callback used to configure Monolog.
-     *
-     * @var callable|null
-     */
-    protected $monologConfigurator;
-
-    /**
      * 应用命名空间
-     * The application namespace.
      *
      * @var string
      */
@@ -79,20 +59,14 @@ class Application extends Container
 
     /**
      * 创建应用容器实例
-     * Create a new Lumen application instance.
      *
      * @param  string|null  $basePath
-     * @return void
      */
     public function __construct($basePath = null)
     {
-        //date_default_timezone_set(env('APP_TIMEZONE', 'UTC'));        //时区设置
-
         $this->basePath = $basePath;
 
         $this->bootstrapContainer();
-
-        //$this->registerErrorHandling();   //错误处理
     }
 
     /**
@@ -108,36 +82,10 @@ class Application extends Container
         $this->instance('app', $this);
         $this->instance('Mine\Application', $this);
 
-        $this->instance('path', $this->path());
+        $this->instance('apiPath', $this->apiPath());
 
         //注册容器中的别名
         $this->registerContainerAliases();
-    }
-
-    /**
-     * 应用环境
-     * Get or check the current application environment.
-     *
-     * @param  mixed
-     * @return string
-     */
-    public function environment()
-    {
-        $env = env('APP_ENV', 'production');
-
-        if (func_num_args() > 0) {
-            $patterns = is_array(func_get_arg(0)) ? func_get_arg(0) : func_get_args();
-
-            foreach ($patterns as $pattern) {
-                if (Str::is($pattern, $env)) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        return $env;
     }
 
     /**
@@ -384,37 +332,6 @@ class Application extends Container
     }
 
     /**
-     * 绑定日志
-     * Register container bindings for the application.
-     *
-     * @return void
-     */
-    protected function registerLogBindings()
-    {
-        $this->singleton('Psr\Log\LoggerInterface', function () {
-            if ($this->monologConfigurator) {
-                return call_user_func($this->monologConfigurator, new Logger('lumen'));
-            } else {
-                return new Logger('lumen', [$this->getMonologHandler()]);
-            }
-        });
-    }
-
-    /**
-     * 绑定Monolog
-     * Define a callback to be used to configure Monolog.
-     *
-     * @param  callable  $callback
-     * @return $this
-     */
-    public function configureMonologUsing(callable $callback)
-    {
-        $this->monologConfigurator = $callback;
-
-        return $this;
-    }
-
-    /**
      * 绑定队列
      * Register container bindings for the application.
      *
@@ -428,17 +345,6 @@ class Application extends Container
         $this->singleton('queue.connection', function () {
             return $this->loadComponent('queue', 'Illuminate\Queue\QueueServiceProvider', 'queue.connection');
         });
-    }
-
-    /**
-     * Get the Monolog handler for the application.
-     *
-     * @return \Monolog\Handler\AbstractHandler
-     */
-    protected function getMonologHandler()
-    {
-        return (new StreamHandler(storage_path('logs/lumen.log'), Logger::DEBUG))
-                            ->setFormatter(new LineFormatter(null, null, true, true));
     }
 
     /**
@@ -531,19 +437,6 @@ class Application extends Container
     }
 
     /**
-     * 绑定路由 url
-     * Register container bindings for the application.
-     *
-     * @return void
-     */
-    protected function registerUrlGeneratorBindings()
-    {
-        $this->singleton('url', function () {
-            return new Routing\UrlGenerator($this);
-        });
-    }
-
-    /**
      * 绑定验证
      * Register container bindings for the application.
      *
@@ -555,19 +448,6 @@ class Application extends Container
             $this->register('Illuminate\Validation\ValidationServiceProvider');
 
             return $this->make('validator');
-        });
-    }
-
-    /**
-     * 绑定视图
-     * Register container bindings for the application.
-     *
-     * @return void
-     */
-    protected function registerViewBindings()
-    {
-        $this->singleton('view', function () {
-            return $this->loadComponent('view', 'Illuminate\View\ViewServiceProvider');
         });
     }
 
@@ -688,17 +568,6 @@ class Application extends Container
     }
 
     /**
-     * App 目录
-     * Get the path to the application "app" directory.
-     *
-     * @return string
-     */
-    public function path()
-    {
-        return $this->basePath.DIRECTORY_SEPARATOR.'app';
-    }
-
-    /**
      * 基本目录 （项目根目录）
      * Get the base path for the application.
      *
@@ -721,68 +590,23 @@ class Application extends Container
     }
 
     /**
-     * 数据库目录
-     * Get the database path for the application.
+     * Api 目录
      *
      * @return string
      */
-    public function databasePath()
+    public function apiPath()
     {
-        return $this->basePath().'/database';
+        return $this->basePath().DIRECTORY_SEPARATOR.'app'.DIRECTORY_SEPARATOR.'api';
     }
 
     /**
-     * 缓存目录
-     * Get the storage path for the application.
+     * App 目录
      *
-     * @param  string|null  $path
      * @return string
      */
-    public function storagePath($path = null)
+    public function appPath()
     {
-        return $this->basePath().'/storage'.($path ? '/'.$path : $path);
-    }
-
-    /**
-     * 命令行模式
-     * Determine if the application is running in the console.
-     *
-     * @return bool
-     */
-    public function runningInConsole()
-    {
-        return php_sapi_name() == 'cli';
-    }
-
-    /**
-     * 测试
-     * Determine if we are running unit tests.
-     *
-     * @return bool
-     */
-    public function runningUnitTests()
-    {
-        return $this->environment() == 'testing';
-    }
-
-    /**
-     * 初始化命令行模式
-     * Prepare the application to execute a console command.
-     *
-     * @return void
-     */
-    public function prepareForConsoleCommand()
-    {
-        $this->withFacades();
-
-        $this->make('cache');
-        $this->make('queue');
-
-        $this->configure('database');
-
-        $this->register('Illuminate\Database\MigrationServiceProvider');
-        $this->register('Illuminate\Database\SeedServiceProvider');
-        $this->register('Illuminate\Queue\ConsoleServiceProvider');
+        return $this->basePath().DIRECTORY_SEPARATOR.'app';
     }
 
     /**
@@ -807,13 +631,10 @@ class Application extends Container
             'Illuminate\Contracts\Encryption\Encrypter' => 'encrypter',
             'Illuminate\Contracts\Events\Dispatcher' => 'events',
             'Illuminate\Contracts\Hashing\Hasher' => 'hash',
-            'log' => 'Psr\Log\LoggerInterface',
             'Illuminate\Contracts\Queue\Factory' => 'queue',
             'Illuminate\Contracts\Queue\Queue' => 'queue.connection',
             'request' => 'Illuminate\Http\Request',
-            'Mine\Routing\UrlGenerator' => 'url',
             'Illuminate\Contracts\Validation\Factory' => 'validator',
-            'Illuminate\Contracts\View\Factory' => 'view',
         ];
     }
 
@@ -845,8 +666,6 @@ class Application extends Container
         'files' => 'registerFilesBindings',
         'hash' => 'registerHashBindings',
         'Illuminate\Contracts\Hashing\Hasher' => 'registerHashBindings',
-        'log' => 'registerLogBindings',
-        'Psr\Log\LoggerInterface' => 'registerLogBindings',
         'queue' => 'registerQueueBindings',
         'queue.connection' => 'registerQueueBindings',
         'Illuminate\Contracts\Queue\Factory' => 'registerQueueBindings',
@@ -856,10 +675,7 @@ class Application extends Container
         'Psr\Http\Message\ResponseInterface' => 'registerPsrResponseBindings',
         'Illuminate\Http\Request' => 'registerRequestBindings',
         'translator' => 'registerTranslationBindings',
-        'url' => 'registerUrlGeneratorBindings',
         'validator' => 'registerValidatorBindings',
         'Illuminate\Contracts\Validation\Factory' => 'registerValidatorBindings',
-        'view' => 'registerViewBindings',
-        'Illuminate\Contracts\View\Factory' => 'registerViewBindings',
     ];
 }

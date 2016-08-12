@@ -1,33 +1,16 @@
 <?php
 
 use Illuminate\Support\Str;
+use Illuminate\Support\Arr;
 use Illuminate\Container\Container;
-use Illuminate\Contracts\Bus\Dispatcher;
-
-if (! function_exists('abort')) {
-    /**
-     * Throw an HttpException with the given data.
-     *
-     * @param  int     $code
-     * @param  string  $message
-     * @param  array   $headers
-     * @return void
-     *
-     * @throws \Symfony\Component\HttpKernel\Exception\HttpException
-     * @throws \Symfony\Component\HttpKernel\Exception\NotFoundHttpException
-     */
-    function abort($code, $message = '', array $headers = [])
-    {
-        return app()->abort($code, $message, $headers);
-    }
-}
 
 if (! function_exists('app')) {
     /**
-     * Get the available container instance.
+     * 应用容器
      *
-     * @param  string  $make
-     * @param  array   $parameters
+     * @param  string $make
+     * @param  array  $parameters
+     *
      * @return mixed|\Mine\Application
      */
     function app($make = null, $parameters = [])
@@ -40,87 +23,261 @@ if (! function_exists('app')) {
     }
 }
 
+if (! function_exists('api')) {
+    /**
+     * 应用容器
+     *
+     * @param  string $make
+     * @param  array  $parameters
+     *
+     * @return mixed|\Mine\Application
+     */
+    function api($make = null, $parameters = [])
+    {
+        if (is_null($make)) {
+            return Container::getInstance();
+        }
+
+        return Container::getInstance()->make($make, $parameters);
+    }
+}
+
+if (! function_exists('request')) {
+    /**
+     * 获取HTTP客户端请求数据
+     *
+     * @param  string [$key]  要获取的参数键
+     * @param  string [$default]  键不存在时返回的值
+     *
+     * @return mixed
+     *
+     * @e   .g
+     * request('id');  ===  request()->id;  //返回同一个数据的两种用法
+     * request('name.firstname');  //使用点语法
+     * request()->only(['id', 'name']);   //返回多个数据
+     * request()->has('pic');  //数据判断
+     * request()->all();  //所有数据
+     * request()->file('img');  //文件数据
+     * request()->isPost();  //请求方式判断
+     * ...
+     *
+     * @auth: AlpFish 2016/7/25 9:26
+     */
+    function request($key = null, $default = null)
+    {
+        if (is_null($key)) {
+            return Me\Http\Request::getInstance();
+        }
+        return Me\Http\Request::getInstance()->input($key, $default);
+    }
+}
+
+if (! function_exists('validate')) {
+    /**
+     * 数据验证器
+     *
+     * 1. 支持的验证规则有 required|mobile|email|min:|max:|numeric|integer|date|ip|url|activeUrl
+     *
+     * @param array $data  要验证的数据，$rules 有的数据必须有，$rules 没有的数据也可以有
+     * @param array $rules 待验证的规则，规则名和参数必须正确
+     * @param       array  [$msg]    验证失败信息，使用 ： 号声明对应规则验证失败信息，不使用 ：号则是对该条数据设置相同的失败信息
+     *
+     * @return Me\Validation\Validator
+     *
+     * @author AlpFish 2016/7/28 23:52
+     */
+    function validate($data, $rules, $msg = null)
+    {
+        return new Me\Validation\Validator($data, $rules, $msg);
+    }
+}
+
+if (! function_exists('ab_path')) {
+    /*--------------------------------------------------------------------------
+     * 将目录或文件路径转化为项目绝对路径
+     *--------------------------------------------------------------------------
+     *
+     * 1. 目录路径末尾自动添加 / ， 文件不会加
+     * 2. $path 参数为空默认返回项目根目录路径
+     * 3. 项目根目录路径默认服务器设置，可用配置文件 root_path 项重新设置
+     *
+     * @param string [$path] 路径
+     *
+     * @return string 格式化后的路径
+     *
+     * @author AlpFish 2016/7/25 10:50
+     */
+    function ab_path($path = null)
+    {
+        //获取根目录 & 统一分隔符
+        $root = str_replace('\\', '/', realpath(__DIR__ . '/../../../../')) . '/';
+
+        //返回项目根路径
+        if (is_null($path))
+            return $root;
+
+        //统一分隔符
+        $path = trim(str_replace('\\', '/', $path));
+
+        //如果不是文件, 末尾加 /
+        $array = explode('/', $path);
+        $last = $array[ count($array) - 1 ];
+        if (! empty($last))
+            if (strpos($last, '.') === false)
+                $path = $path[ strlen($path) - 1 ] === '/' ? $path : $path . '/';
+
+        //子目录包含根目录
+        if (strpos($path, $root) !== false) {
+            return $path;
+        }
+
+        return $path[ 0 ] === '/' ? $root . substr($path, 1) : $root . $path;
+    }
+}
+
 if (! function_exists('base_path')) {
     /**
-     * Get the path to the base of the install.
+     * 项目基本目录
      *
-     * @param  string  $path
+     * @param  string $path
+     *
      * @return string
      */
     function base_path($path = '')
     {
-        return app()->basePath().($path ? '/'.$path : $path);
+        return app()->basePath() . ($path ? '/' . $path : $path);
     }
 }
 
-if (! function_exists('decrypt')) {
+if (! function_exists('api_path')) {
     /**
-     * Decrypt the given value.
+     * 项目基本目录
      *
-     * @param  string  $value
+     * @param  string $path
+     *
      * @return string
      */
-    function decrypt($value)
+    function api_path($path = '')
     {
-        return app('encrypter')->decrypt($value);
+        return app()->apiPath() . ($path ? '/' . $path : $path);
     }
 }
 
-if (! function_exists('dispatch')) {
+if (! function_exists('data_get')) {
     /**
-     * Dispatch a job to its appropriate handler.
+     * 从数组/对象中获取数据, 支持点语法
+     * Get an item from an array or object using "dot" notation.
      *
-     * @param  mixed  $job
+     * @param  mixed        $target
+     * @param  string|array $key
+     * @param  mixed        $default
+     *
      * @return mixed
      */
-    function dispatch($job)
-    {
-        return app(Dispatcher::class)->dispatch($job);
-    }
-}
-
-if (! function_exists('config')) {
-    /**
-     * Get / set the specified configuration value.
-     *
-     * If an array is passed as the key, we will assume you want to set an array of values.
-     *
-     * @param  array|string  $key
-     * @param  mixed  $default
-     * @return mixed
-     */
-    function config($key = null, $default = null)
+    function data_get($target, $key, $default = null)
     {
         if (is_null($key)) {
-            return app('config');
+            return $target;
         }
 
-        if (is_array($key)) {
-            return app('config')->set($key);
+        $key = is_array($key) ? $key : explode('.', $key);
+
+        while (($segment = array_shift($key)) !== null){
+            if ($segment === '*') {
+                if ($target instanceof Illuminate\Support\Collection) {
+                    $target = $target->all();
+                } elseif (! is_array($target)){
+                    return value($default);
+                }
+
+                $result = Arr::pluck($target, $key);
+
+                return in_array('*', $key) ? Arr::collapse($result) : $result;
+            }
+
+            if (Arr::accessible($target) && Arr::exists($target, $segment)) {
+                $target = $target[ $segment ];
+            } elseif (is_object($target) && isset($target->{$segment})){
+                $target = $target->{$segment};
+            } else{
+                return value($default);
+            }
         }
 
-        return app('config')->get($key, $default);
+        return $target;
     }
 }
 
-if (! function_exists('database_path')) {
+if (! function_exists('data_set')) {
     /**
-     * Get the path to the database directory of the install.
+     * （以覆盖的方式）为数组或对象填充数据, 支持点语法
+     * Set an item on an array or object using dot notation.
      *
-     * @param  string  $path
-     * @return string
+     * @param  mixed  $target
+     * @param  string $key
+     * @param  mixed  $value
+     * @param  bool   $overwrite
+     *
+     * @return mixed
      */
-    function database_path($path = '')
+    function data_set(&$target, $key, $value, $overwrite = true)
     {
-        return app()->databasePath().($path ? '/'.$path : $path);
+        $segments = is_array($key) ? $key : explode('.', $key);
+
+        if (($segment = array_shift($segments)) === '*') {
+            if (! Arr::accessible($target)) {
+                $target = [];
+            }
+
+            if ($segments) {
+                foreach ($target as &$inner){
+                    data_set($inner, $segments, $value, $overwrite);
+                }
+            } elseif ($overwrite){
+                foreach ($target as &$inner){
+                    $inner = $value;
+                }
+            }
+        } elseif (Arr::accessible($target)){
+            if ($segments) {
+                if (! Arr::exists($target, $segment)) {
+                    $target[ $segment ] = [];
+                }
+
+                data_set($target[ $segment ], $segments, $value, $overwrite);
+            } elseif ($overwrite || ! Arr::exists($target, $segment)){
+                $target[ $segment ] = $value;
+            }
+        } elseif (is_object($target)){
+            if ($segments) {
+                if (! isset($target->{$segment})) {
+                    $target->{$segment} = [];
+                }
+
+                data_set($target->{$segment}, $segments, $value, $overwrite);
+            } elseif ($overwrite || ! isset($target->{$segment})){
+                $target->{$segment} = $value;
+            }
+        } else{
+            $target = [];
+
+            if ($segments) {
+                data_set($target[ $segment ], $segments, $value, $overwrite);
+            } elseif ($overwrite){
+                $target[ $segment ] = $value;
+            }
+        }
+
+        return $target;
     }
 }
 
 if (! function_exists('encrypt')) {
     /**
-     * Encrypt the given value.
+     * 加密
      *
-     * @param  string  $value
+     * @param  string $value
+     *
      * @return string
      */
     function encrypt($value)
@@ -129,99 +286,17 @@ if (! function_exists('encrypt')) {
     }
 }
 
-if (! function_exists('env')) {
+if (! function_exists('decrypt')) {
     /**
-     * Gets the value of an environment variable. Supports boolean, empty and null.
+     * 解密
      *
-     * @param  string  $key
-     * @param  mixed   $default
-     * @return mixed
-     */
-    function env($key, $default = null)
-    {
-        $value = getenv($key);
-
-        if ($value === false) {
-            return value($default);
-        }
-
-        switch (strtolower($value)) {
-            case 'true':
-            case '(true)':
-                return true;
-
-            case 'false':
-            case '(false)':
-                return false;
-
-            case 'empty':
-            case '(empty)':
-                return '';
-
-            case 'null':
-            case '(null)':
-                return;
-        }
-
-        if (Str::startsWith($value, '"') && Str::endsWith($value, '"')) {
-            return substr($value, 1, -1);
-        }
-
-        return $value;
-    }
-}
-
-if (! function_exists('event')) {
-    /**
-     * Fire an event and call the listeners.
+     * @param  string $value
      *
-     * @param  string  $event
-     * @param  mixed   $payload
-     * @param  bool    $halt
-     * @return array|null
+     * @return string
      */
-    function event($event, $payload = [], $halt = false)
+    function decrypt($value)
     {
-        return app('events')->fire($event, $payload, $halt);
-    }
-}
-
-if (! function_exists('factory')) {
-    /**
-     * Create a model factory builder for a given class, name, and amount.
-     *
-     * @param  dynamic  class|class,name|class,amount|class,name,amount
-     * @return \Illuminate\Database\Eloquent\FactoryBuilder
-     */
-    function factory()
-    {
-        app('db');
-
-        $factory = app('Illuminate\Database\Eloquent\Factory');
-
-        $arguments = func_get_args();
-
-        if (isset($arguments[1]) && is_string($arguments[1])) {
-            return $factory->of($arguments[0], $arguments[1])->times(isset($arguments[2]) ? $arguments[2] : 1);
-        } elseif (isset($arguments[1])) {
-            return $factory->of($arguments[0])->times($arguments[1]);
-        } else {
-            return $factory->of($arguments[0]);
-        }
-    }
-}
-
-if (! function_exists('info')) {
-    /**
-     * Write some information to the log.
-     *
-     * @param  string  $message
-     * @param  array   $context
-     * @return void
-     */
-    function info($message, $context = [])
-    {
-        return app('Psr\Log\LoggerInterface')->info($message, $context);
+        return app('encrypter')->decrypt($value);
     }
 }
 
@@ -229,10 +304,11 @@ if (! function_exists('redirect')) {
     /**
      * Get an instance of the redirector.
      *
-     * @param  string|null  $to
-     * @param  int     $status
-     * @param  array   $headers
-     * @param  bool    $secure
+     * @param  string|null $to
+     * @param  int         $status
+     * @param  array       $headers
+     * @param  bool        $secure
+     *
      * @return \Mine\Http\Redirector|\Illuminate\Http\RedirectResponse
      */
     function redirect($to = null, $status = 302, $headers = [], $secure = null)
@@ -247,88 +323,16 @@ if (! function_exists('redirect')) {
     }
 }
 
-if (! function_exists('response')) {
+if (! function_exists('e')) {
     /**
-     * Return a new response from the application.
+     * 转换 HTML entities 特殊字符
      *
-     * @param  string  $content
-     * @param  int     $status
-     * @param  array   $headers
-     * @return \Symfony\Component\HttpFoundation\Response|\Mine\Http\ResponseFactory
-     */
-    function response($content = '', $status = 200, array $headers = [])
-    {
-        $factory = new Mine\Http\ResponseFactory;
-
-        if (func_num_args() === 0) {
-            return $factory;
-        }
-
-        return $factory->make($content, $status, $headers);
-    }
-}
-
-if (! function_exists('route')) {
-    /**
-     * Generate a URL to a named route.
+     * @param  string $value
      *
-     * @param  string  $name
-     * @param  array   $parameters
      * @return string
      */
-    function route($name, $parameters = [])
+    function e($value)
     {
-        return (new Mine\Routing\UrlGenerator(app()))
-                ->route($name, $parameters);
-    }
-}
-
-if (! function_exists('storage_path')) {
-    /**
-     * Get the path to the storage folder.
-     *
-     * @param  string  $path
-     * @return string
-     */
-    function storage_path($path = '')
-    {
-        return app()->storagePath($path);
-    }
-}
-
-if (! function_exists('url')) {
-    /**
-     * Generate a url for the application.
-     *
-     * @param  string  $path
-     * @param  mixed   $parameters
-     * @param  bool    $secure
-     * @return string
-     */
-    function url($path = null, $parameters = [], $secure = null)
-    {
-        return (new Mine\Routing\UrlGenerator(app()))
-                                ->to($path, $parameters, $secure);
-    }
-}
-
-if (! function_exists('view')) {
-    /**
-     * Get the evaluated view contents for the given view.
-     *
-     * @param  string  $view
-     * @param  array   $data
-     * @param  array   $mergeData
-     * @return \Illuminate\View\View
-     */
-    function view($view = null, $data = [], $mergeData = [])
-    {
-        $factory = app('view');
-
-        if (func_num_args() === 0) {
-            return $factory;
-        }
-
-        return $factory->make($view, $data, $mergeData);
+        return htmlentities($value, ENT_QUOTES, 'UTF-8', false);
     }
 }
